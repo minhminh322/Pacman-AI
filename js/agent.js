@@ -153,7 +153,7 @@ var Node = function (parent, position, move) {
  * @param {*} end 
  * @param {*} mode 
  */
-function aStarSearch(start, end, mode=true) {
+function aStarSearch(start, end, mode) {
   var start_node = new Node(Node, [start[0],start[1]], 0);
   start_node.g, start_node.f, start_node.h = 0;
   var end_node = new Node(Node, [end[0],end[1]], 0);
@@ -166,7 +166,7 @@ function aStarSearch(start, end, mode=true) {
 
   // Adding a stop condition. This is to avoid any infinite loop and stop execution after some reasonable number of steps
   var outer_iterations = 0
-  var max_iterations = Math.floor(Math.floor(GAMEBOARD.length/2)*10);
+  var max_iterations = Math.floor(Math.floor(GAMEBOARD.length/2)*5);
 
   while (to_visit_list.length > 0) {
     outer_iterations += 1;
@@ -183,15 +183,15 @@ function aStarSearch(start, end, mode=true) {
     // if we hit this point return the path such as it may be no solution or computation cost is too high
     if (outer_iterations > max_iterations) {
         console.log("giving up on pathfinding too many iterations");
-        return movePath(current_node, false)
+        return movePath(current_node, 0)
     }
 
     to_visit_list.splice(current_index, 1);
     visited_list.push(current_node);
-
+    
     if ((current_node.position[0] === end_node.position[0]) &&
     (current_node.position[1] === end_node.position[1])) {
-      return movePath(current_node)
+      return movePath(current_node, 1)
     }
 
     var children = [];
@@ -205,7 +205,7 @@ function aStarSearch(start, end, mode=true) {
         
         // Check if new_position is valid move in GAMEBOARD
         if (mode) {
-          if (!isValidNewPosition(NEW_POSITION_X, NEW_POSITION_Y)) continue
+          if (!isValidNewPosition(NEW_POSITION_X, NEW_POSITION_Y, true)) continue
         } else {
           if (!isValidNewPosition(NEW_POSITION_X, NEW_POSITION_Y, false)) continue
         }
@@ -221,7 +221,8 @@ function aStarSearch(start, end, mode=true) {
       if (visited_child_filter.length > 0) continue
       
       child.g = current_node.g + 1;
-      child.h = (Math.pow((child.position[0] - end_node.position[0]), 2) + Math.pow((child.position[1] - end_node.position[1]), 2));
+      // child.h = (Math.pow((child.position[0] - end_node.position[0]), 2) + Math.pow((child.position[1] - end_node.position[1]), 2));
+      child.h = Math.abs(child.position[0] - end_node.position[0]) + Math.abs(child.position[1] - end_node.position[1]);
       child.f = child.g + child.h;
       var child_filter = to_visit_list.filter(to_visit_child => ((to_visit_child.position[0] === child.position[0]) && 
                                                                   (to_visit_child.position[1] === child.position[1]) && 
@@ -238,12 +239,63 @@ function aStarSearch(start, end, mode=true) {
 //        Cherry: [12,16][13,16]
 // var check_point = [[25,22],[0,22],[0,3],[25,3]];
 // var check_point = [[25,22],[14,7],[5,5],[8,13],[13,22],[20,22],[25,28],[0,28]];
-var toggle_temp = true;
 
-var check_point = [[25,28],[0,28]];
-var chase_ghosts = [];
-var brutal_arr = [];
-var brutal_var = true;
+// var check_point = [[25,28],[0,28]];
+// var chase_ghosts = [];
+
+var check_point_1 = [];
+var check_point_2 = [];
+var check_point_3 = [];
+var check_point_4 = [];
+
+function init() {
+// Note: superBubble: [0,3],[25,3],[0,22],[25,22]
+  for (var rows = 0; rows < 14; rows++) {
+    for (var cols = 0; cols < 13; cols++) {
+      if (GAMEBOARD[cols][rows] === null) continue
+      if (GAMEBOARD[cols][rows].superBubble === true) continue
+      if (GAMEBOARD[cols][rows].bubble === true && GAMEBOARD[cols][rows].eaten === false) {
+        check_point_1.push([cols,rows]);
+      }
+    }
+  }
+
+  for (var rows = 0; rows < 14; rows++) {
+    for (var cols = 13; cols < 26; cols++) {
+      if (GAMEBOARD[cols][rows] === null) continue
+      if (GAMEBOARD[cols][rows].superBubble === true) continue
+      if (GAMEBOARD[cols][rows].bubble === true && GAMEBOARD[cols][rows].eaten === false) {
+        check_point_2.push([cols,rows]);
+      }
+    }
+  }
+
+  for (var rows = 14; rows < 29; rows++) {
+    for (var cols = 0; cols < 13; cols++) {
+      if (GAMEBOARD[cols][rows] === null) continue
+      if (GAMEBOARD[cols][rows].superBubble === true) continue
+      if (GAMEBOARD[cols][rows].bubble === true && GAMEBOARD[cols][rows].eaten === false) {
+        check_point_3.push([cols,rows]);
+      }
+    }
+  }
+  for (var rows = 14; rows < 29; rows++) {
+    for (var cols = 13; cols < 26; cols++) {
+      if (GAMEBOARD[cols][rows] === null) continue
+      if (GAMEBOARD[cols][rows].superBubble === true) continue
+      if (GAMEBOARD[cols][rows].bubble === true && GAMEBOARD[cols][rows].eaten === false) {
+        check_point_4.push([cols,rows]);
+      }
+    }
+  }
+  if (GAMEBOARD[0][3].eaten === false) check_point_1.push([0,3])
+  if (GAMEBOARD[25][3].eaten === false) check_point_2.push([25,3])
+  if (GAMEBOARD[0][22].eaten === false) check_point_3.push([0,22])
+  if (GAMEBOARD[25][22].eaten === false) check_point_4.push([25,22])
+}
+
+var check_point = [];
+var one_time_loop = true;
 function selectMove() {
 
   buildGameboard();
@@ -251,83 +303,139 @@ function selectMove() {
   if (!PACMAN_DEAD && !GAMEOVER) { // make sure the game is running
     var pm_position = getXY(PACMAN_POSITION_X, PACMAN_POSITION_Y); // [13][22]
 
-    // if ((GHOST_BLINKY_STATE === 1) && (toggle_temp === true)) {
-    //   var blinky_position = getXY(GHOST_BLINKY_POSITION_X, GHOST_BLINKY_POSITION_Y);
-    //   // var pinky_position = getXY(GHOST_PINKY_POSITION_X, GHOST_PINKY_POSITION_Y);
-    //   // var inky_position = getXY(GHOST_INKY_POSITION_X, GHOST_INKY_POSITION_Y);
-    //   // chase_ghosts.push([inky_position.x,inky_position.y],[pinky_position.x,pinky_position.y],[blinky_position.x,blinky_position.y])
-    //   move_path = aStarSearch([pm_position.x,pm_position.y], [blinky_position.x,blinky_position.y],false);
+    init();
+    // // Eat important points
+    // if (check_point.length > 0) {
+    //     move_path = aStarSearch([pm_position.x,pm_position.y], check_point[check_point.length-1]);
     //   if (move_path.length < 1) {
-    //     // check_point.pop();
-    //     toggle_temp = false;
+    //     check_point.pop();
     //   }
     // }
-    
-    // Phase 1
-    if (check_point.length > 0) {
-        move_path = aStarSearch([pm_position.x,pm_position.y], check_point[check_point.length-1]);
-      if (move_path.length < 1) {
-        check_point.pop();
-      }
-    }
-
-    // Phase 2
-    if ((check_point.length < 1) && brutal_var === true) {
-      for (var i = 0; i < 26; i++) {
-        for (var j = 0; j < 29; j++) {
-          if (GAMEBOARD[i][j] === null) continue
-          if (GAMEBOARD[i][j].bubble === true && GAMEBOARD[i][j].eaten === false) {
-            brutal_arr.push([i,j]);
-          }
-        }
-      }
-      brutal_var = false;
-    }
-
-    if (brutal_arr.length > 0) {
-      move_path = aStarSearch([pm_position.x,pm_position.y], brutal_arr[brutal_arr.length-1]);
-      if (move_path.length < 1) {
-        brutal_arr.pop();
-      }
-    }
-
-
-    // if (move_path.length < 1) {
-    //   check_point.pop();
+    // if (one_time_loop === true) {
+    //   for (var i = 0; i < 26; i++) {
+    //     for (var j = 0; j < 28; j++) {
+    //       if (GAMEBOARD[i][j] === null) continue
+    //       if (GAMEBOARD[i][j].bubble === true && GAMEBOARD[i][j].eaten === false) {
+    //         check_point.push([i,j]);
+    //       }
+    //     }
+    //   }
+    //   shuffle_array(check_point);
+    //   one_time_loop = false;
     // }
-    movePacman(move_path.pop());
+    var move_path,status;
+    if (check_point_4.length > 0) {
+      if ((GHOST_BLINKY_STATE === 1)) {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_4[check_point_4.length-1], false);
+      } else {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_4[check_point_4.length-1], true);
+      }
+      // if (status === 0) {
+      //   check_point.unshift(check_point.pop())
+      // }
+      // else {
+      //   if (move_path.length < 1) {
+      //     check_point.pop();
+      //   }        
+      // } 
+      movePacman(move_path.pop()); 
+    } 
     
+    else if (check_point_3.length > 0){
+      if ((GHOST_BLINKY_STATE === 1)) {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_3[check_point_3.length-1], false);
+      } else {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_3[check_point_3.length-1], true);
+      }
+      // if (status === 0) {
+      //   check_point.unshift(check_point.pop())
+      // }
+      // else {
+      //   if (move_path.length < 1) {
+      //     check_point.pop();
+      //   }        
+      // }
+      movePacman(move_path.pop()); 
+    }
+
+    else if (check_point_1.length > 0){
+      if ((GHOST_BLINKY_STATE === 1)) {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_1[check_point_1.length-1], false);
+      } else {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_1[check_point_1.length-1], true);
+      }
+      // if (status === 0) {
+      //   check_point.unshift(check_point.pop())
+      // }
+      // else {
+      //   if (move_path.length < 1) {
+      //     check_point.pop();
+      //   }        
+      // }
+      movePacman(move_path.pop()); 
+    }
+
+    else {
+      if ((GHOST_BLINKY_STATE === 1)) {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_2[check_point_2.length-1], false);
+      } else {
+        [move_path,status] = aStarSearch([pm_position.x,pm_position.y], check_point_2[check_point_2.length-1], true);
+      }
+      // if (status === 0) {
+      //   check_point.unshift(check_point.pop())
+      // }
+      // else {
+      //   if (move_path.length < 1) {
+      //     check_point.pop();
+      //   }        
+      // }
+      movePacman(move_path.pop()); 
+    }
+
+    check_point_1=[];
+    check_point_2=[];
+    check_point_3=[];
+    check_point_4=[];
+
   }
 };
 
+/**
+ * Shuffles array in place. ES6 version
+ * @param {Array} a items An array containing the items.
+ */
+function shuffle_array(a) {
+  for (let i = a.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
 
 // setInterval(drawDebug, 1000/3);
 
 /**
  * Helper method for aStarSearch
- * status: true -> found path
- *         false -> not found path
+ * status: 1 -> found path
+ *         0 -> not found path
  */
-function movePath(current_node, status=true) {
+function movePath(current_node, status) {
   var path = [];
   var current = current_node;
   while (current != null) {
     path.push(current.move);
     current = current.parent;
   }
-  if (status) {
-    path.pop();
-    path.pop();
-  } else {
-    path.pop();
-  }
-  // console.log("old: "+path);
+  path.pop();
+  path.pop();
+  return [path,status]
 
-  // console.log("new: "+path);
-  // path = path.reverse();
-  return path
 }
 
+var safe_move = [[2,0,1],
+[0,2,2],
+[-2,0,3],
+[0,-2,4]];
 /**
  * 
  * @param {*} NEW_POSITION_X 
@@ -335,18 +443,18 @@ function movePath(current_node, status=true) {
  * @param {Mode: true -> Escape mode       
  *               false -> Chase mode} mode 
  */
-function isValidNewPosition(NEW_POSITION_X, NEW_POSITION_Y, mode=true) {
+function isValidNewPosition(NEW_POSITION_X, NEW_POSITION_Y, mode) {
   if ((NEW_POSITION_X < 0 || NEW_POSITION_X > 25) ||
   (NEW_POSITION_Y < 0 || NEW_POSITION_Y > 28) ||
   (GAMEBOARD[NEW_POSITION_X][NEW_POSITION_Y] === null)) return false
 
-  // var safe_position = [];
+  var safe_position = [];
   if (mode) {
      if ((GAMEBOARD[NEW_POSITION_X][NEW_POSITION_Y].blinky === true) ||
         (GAMEBOARD[NEW_POSITION_X][NEW_POSITION_Y].pinky === true) ||
         (GAMEBOARD[NEW_POSITION_X][NEW_POSITION_Y].inky === true) ||
         (GAMEBOARD[NEW_POSITION_X][NEW_POSITION_Y].clyde === true)) return false      
-      // for (let move of next_move) {
+      // for (let move of safe_move) {
       //   var NEW_POSITION_X = NEW_POSITION_X + move[0];
       //   var NEW_POSITION_Y = NEW_POSITION_Y + move[1]; 
       //   if ((NEW_POSITION_X < 0 || NEW_POSITION_X > 25) ||
